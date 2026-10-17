@@ -266,8 +266,6 @@ export function buildFullProfile(partial: Partial<FullProfile>): FullProfile {
 }
 
 export async function updateProfile(token: string, profile: FullProfile): Promise<void> {
-  // DIAGNÓSTICO TEMPORAL: muestra en la terminal de Expo qué se envía al backend.
-  console.log(`[DIAG updateProfile] gender="${profile.gender}" preferredGender="${profile.preferredGender}" ageMin=${profile.ageMin} ageMax=${profile.ageMax}`);
   await callAction(
     'updateprofile',
     {
