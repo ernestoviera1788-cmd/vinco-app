@@ -69,7 +69,7 @@ export default function Discover() {
       if (!filtersLoaded) return;
       setLoading(true);
       void load();
-    }, [load, filtersLoaded]),
+    }, [load, filtersLoaded, filters]),
   );
 
   async function persistFilters(next: SearchFilters) {
