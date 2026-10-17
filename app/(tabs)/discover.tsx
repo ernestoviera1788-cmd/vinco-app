@@ -31,12 +31,25 @@ export default function Discover() {
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     void loadSearchFilters().then((saved) => {
-      setFilters(saved);
-      setDraftFilters(saved);
+      const profile = me?.profile;
+      const preferred = profile?.preferredGender;
+      const initial: SearchFilters = profile
+        ? {
+            preferredGender: preferred === 'Hombre' || preferred === 'Mujer' ? preferred : 'Todos',
+            ageMin: profile.ageMin,
+            ageMax: profile.ageMax,
+            distanceMax: profile.distanceMax,
+          }
+        : saved;
+      if (cancelled) return;
+      setFilters(initial);
+      setDraftFilters(initial);
       setFiltersLoaded(true);
     });
-  }, []);
+    return () => { cancelled = true; };
+  }, [me?.profile]);
 
   const load = useCallback(async () => {
     if (!token) return;
