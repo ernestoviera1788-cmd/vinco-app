@@ -22,7 +22,7 @@ jobs:
           node-version: 22
           cache: npm
       - name: Install locked dependencies
-        run: npm ci --no-audit --no-fund
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
       - name: TypeScript
         run: npx tsc --noEmit
       - name: Expo Doctor
