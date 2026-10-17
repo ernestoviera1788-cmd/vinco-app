@@ -25,5 +25,9 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: TypeScript
         run: npx tsc --noEmit
+      - name: Bundle iOS JavaScript
+        run: npx expo export --platform ios --output-dir /tmp/vinco-export-ios
+      - name: Bundle Android JavaScript
+        run: npx expo export --platform android --output-dir /tmp/vinco-export-android
       - name: Expo Doctor
         run: npx expo-doctor
