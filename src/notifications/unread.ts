@@ -9,6 +9,7 @@ import { listNotifications } from '../api/actions';
  * so opening the app with old unread messages does not produce a false ding.
  */
 let unreadCount = 0;
+let seenUnreadToken: string | null = null;
 let seenUnreadMessageKeys: Set<string> | null = null;
 const listeners = new Set<() => void>();
 const newMessageListeners = new Set<() => void>();
@@ -41,6 +42,15 @@ export function subscribeToNewUnreadMessages(listener: () => void): () => void {
 
 /** Re-read the feed and update unread count; returns the last known count on failure. */
 export async function refreshUnreadMessages(token: string): Promise<number> {
+  // Do not carry unread counts or message identities across account sessions.
+  if (seenUnreadToken !== token) {
+    seenUnreadToken = token;
+    seenUnreadMessageKeys = null;
+    if (unreadCount !== 0) {
+      unreadCount = 0;
+      emit();
+    }
+  }
   try {
     const items = await listNotifications(token);
     const unreadMessages = items.filter((item) => item.type === 'message' && !item.readAt);
