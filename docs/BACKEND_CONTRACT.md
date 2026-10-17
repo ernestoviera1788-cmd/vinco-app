@@ -38,7 +38,7 @@ the exact public URL is unknown and it is unverified whether the server accepts
 direct external POSTs. The native app is built against configurable
 `EXPO_PUBLIC_API_URL` and every network call fails honestly — no mocked success.
 
-## Action inventory (57 published)
+## Action inventory (57 existing published + 2 push actions proposed in paired backend PR)
 
 ### Auth & account (native scope)
 | Action | Args |
