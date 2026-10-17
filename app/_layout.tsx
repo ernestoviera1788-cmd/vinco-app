@@ -20,7 +20,7 @@ const PUBLIC_ROUTES = ['legal', 'safety'];
 function AuthGate() {
   const { t } = useI18n();
   const { ready, token } = useAuth();
-  const segments = useSegments();
+  const segments = useSegments() as string[];
   const router = useRouter();
 
   useEffect(() => {
