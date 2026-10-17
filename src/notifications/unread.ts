@@ -2,38 +2,68 @@ import { useEffect, useState } from 'react';
 import { listNotifications } from '../api/actions';
 
 /**
- * Unread "message" notifications. Drives the dot on the Messages tab.
+ * Unread "message" notifications. Drives the dot on the Messages tab and
+ * emits a signal when a newly-created unread message notification is seen.
  *
- * The server marks a conversation's message notifications as read when the
- * chat is opened (`listmessages` does it), so this store only needs to
- * re-read the feed: on tab-layout poll and right when a chat opens.
- * No design or behavior outside the notification dot is touched.
+ * The first successful fetch establishes a baseline without playing a sound,
+ * so opening the app with old unread messages does not produce a false ding.
  */
-
 let unreadCount = 0;
+let seenUnreadMessageKeys: Set<string> | null = null;
 const listeners = new Set<() => void>();
+const newMessageListeners = new Set<() => void>();
 
 function emit() {
-  listeners.forEach((l) => {
+  listeners.forEach((listener) => {
     try {
-      l();
+      listener();
     } catch {
       /* ignore a broken listener */
     }
   });
 }
 
-/** Re-read the feed and update the unread message count. Returns the new count (last known on failure). */
+function emitNewUnreadMessage() {
+  newMessageListeners.forEach((listener) => {
+    try {
+      listener();
+    } catch {
+      /* a sound listener must never break notification refresh */
+    }
+  });
+}
+
+/** Subscribe to newly detected unread message notifications. Returns an unsubscribe function. */
+export function subscribeToNewUnreadMessages(listener: () => void): () => void {
+  newMessageListeners.add(listener);
+  return () => newMessageListeners.delete(listener);
+}
+
+/** Re-read the feed and update unread count; returns the last known count on failure. */
 export async function refreshUnreadMessages(token: string): Promise<number> {
   try {
     const items = await listNotifications(token);
-    const n = items.filter((x) => x.type === 'message' && !x.readAt).length;
-    if (n !== unreadCount) {
-      unreadCount = n;
+    const unreadMessages = items.filter((item) => item.type === 'message' && !item.readAt);
+    const nextKeys = new Set(
+      unreadMessages.map((item) => `${item.id}:${item.createdAt ?? ''}`),
+    );
+    const nextCount = unreadMessages.length;
+
+    // Do not sound on the first successful fetch: these notifications may be old.
+    if (seenUnreadMessageKeys !== null) {
+      const hasNewNotification = [...nextKeys].some((key) => !seenUnreadMessageKeys?.has(key));
+      if (hasNewNotification || nextCount > unreadCount) {
+        emitNewUnreadMessage();
+      }
+    }
+
+    seenUnreadMessageKeys = nextKeys;
+    if (nextCount !== unreadCount) {
+      unreadCount = nextCount;
       emit();
     }
   } catch {
-    /* keep last known count */
+    /* keep last known count and baseline on failure */
   }
   return unreadCount;
 }
@@ -42,7 +72,7 @@ export async function refreshUnreadMessages(token: string): Promise<number> {
 export function useUnreadMessages(): number {
   const [, force] = useState(0);
   useEffect(() => {
-    const listener = () => force((x) => x + 1);
+    const listener = () => force((value) => value + 1);
     listeners.add(listener);
     return () => {
       listeners.delete(listener);
