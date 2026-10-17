@@ -95,8 +95,15 @@ export default function Discover() {
       country: user?.country ?? me?.profile?.country ?? '',
       gender: user?.gender ?? me?.profile?.gender ?? '',
     });
+    const normalizeGender = (value: string) => {
+      const normalized = value.trim().toLowerCase();
+      if (normalized === 'hombre' || normalized === 'man') return 'Hombre';
+      if (normalized === 'mujer' || normalized === 'woman') return 'Mujer';
+      return value.trim();
+    };
     await updateProfile(token, {
       ...current,
+      gender: normalizeGender(current.gender),
       preferredGender: next.preferredGender === 'Todos' ? '' : next.preferredGender,
       ageMin: next.ageMin,
       ageMax: next.ageMax,
