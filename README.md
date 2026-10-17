@@ -38,6 +38,7 @@ Expo Go / a development build.
 | Variable | Required | Purpose |
 |---|---|---|
 | `EXPO_PUBLIC_API_URL` | Yes | Public base URL of the deployed backend. All RPC goes to `{URL}/actions`. |
+| `EXPO_PUBLIC_EAS_PROJECT_ID` | For push | EAS project UUID. Set this after linking the app with `eas init`; it enables Expo push-token registration. |
 
 Without it, every API call throws a clear "not configured" error — the app never
 pretends to work offline.
@@ -56,6 +57,16 @@ eas submit --platform android                       # Play Store
 
 Profiles live in `eas.json`. Bundle IDs: iOS `com.vinco.app`, Android `com.vinco.app`.
 Deep links use the `vinco://` scheme.
+
+### Push notifications setup
+
+1. Link this app to its real EAS project with `eas init` and set `EXPO_PUBLIC_EAS_PROJECT_ID` to that project's UUID if it is not injected by EAS.
+2. Configure Android FCM v1 credentials and iOS APNs credentials in EAS.
+3. Deploy the paired backend PR so `registerpushdevice` / `unregisterpushdevice` are available and the `999_push_devices.sql` migration is applied.
+4. Build and install a development or production native app (`eas build`). Expo Go is not a valid remote-push test target for this setup.
+5. Test notifications with the app foregrounded, backgrounded, and fully closed on physical devices.
+
+The app intentionally skips push-token registration when no EAS project ID is configured. Push delivery is not considered production-ready until the migration, credentials, and real-device tests have passed.
 
 ## Project layout
 

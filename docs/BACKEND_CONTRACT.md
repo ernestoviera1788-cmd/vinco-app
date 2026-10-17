@@ -38,7 +38,7 @@ the exact public URL is unknown and it is unverified whether the server accepts
 direct external POSTs. The native app is built against configurable
 `EXPO_PUBLIC_API_URL` and every network call fails honestly — no mocked success.
 
-## Action inventory (57 published)
+## Action inventory (57 existing published + 2 push actions proposed in paired backend PR)
 
 ### Auth & account (native scope)
 | Action | Args |
@@ -86,9 +86,9 @@ direct external POSTs. The native app is built against configurable
 | `sendmessage` | `token`, `conversationId`, `body` (1–2000) |
 | `settyping` | `token`, `conversationId`, `typing` (boolean) |
 
-> No websocket/push action is published. Real-time chat = polling `listmessages`
-> (+ `settyping` for the typing indicator). True push needs a provider + a
-> backend registration action that does not exist yet → stub.
+> Real-time chat = polling `listmessages` (+ `settyping` for the typing indicator).
+> OS push uses the `registerpushdevice` and `unregisterpushdevice` actions listed below.
+> These actions are introduced in the paired backend PR and are not available until that backend change is deployed.
 
 ### Notifications (native scope)
 | Action | Args |
@@ -96,10 +96,10 @@ direct external POSTs. The native app is built against configurable
 | `listnotifications` | `token` → in-app notification feed (real) |
 | `marknotificationread` | `token`, `notificationId` |
 | `updatenotificationsettings` | `token`, `likes`, `matches`, `messages`, `security`, `marketing` (booleans) |
+| `registerpushdevice` | `token`, `expoPushToken`, `platform` (`ios`\|`android`) — stores this installation's Expo token |
+| `unregisterpushdevice` | `token`, `expoPushToken` — removes this installation's token from the account |
 
-> In-app notifications are real. OS-level push delivery has no backend action
-> (`registerpushdevice` does not exist) → stub with banner until provider +
-> backend support exist.
+> In-app notifications remain available. OS push is being integrated through Expo Push Service; it requires the paired backend PR, a configured EAS project ID, valid APNs/FCM credentials, the database migration, and a development/production build that has been tested on a real device. Until those steps pass, push delivery is not considered production-ready.
 
 ### Premium & commerce (native scope)
 | Action | Args |

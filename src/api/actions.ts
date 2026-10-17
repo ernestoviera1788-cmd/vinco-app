@@ -357,8 +357,19 @@ export async function setPrimaryPhoto(token: string, photoId: string): Promise<v
 
 // ---------------------------------------------------------------- discovery & social
 
-export async function listDiscovery(token: string): Promise<DiscoveryCard[]> {
-  const payload = await callAction('listdiscovery', {}, { token });
+export interface DiscoveryFilterArgs {
+  preferredGender: 'Todos' | 'Hombre' | 'Mujer';
+  withPhoto: boolean;
+  verifiedOnly: boolean;
+  onlineNow: boolean;
+  recentlyActive: boolean;
+  commonInterests: boolean;
+  newProfiles: boolean;
+  sortBy: 'recommended' | 'recent' | 'active';
+}
+
+export async function listDiscovery(token: string, filters?: DiscoveryFilterArgs): Promise<DiscoveryCard[]> {
+  const payload = await callAction('listdiscovery', filters ? { ...filters } : {}, { token });
   // DIAGNÓSTICO TEMPORAL: muestra en la terminal de Expo qué devuelve el backend.
   const rawList = unwrapList(payload);
   console.log(`[DIAG listDiscovery] perfiles recibidos: ${rawList.length}`);
@@ -541,6 +552,23 @@ function parseNotification(v: unknown): AppNotification {
     createdAt: str(o.createdAt) || undefined,
     raw: v,
   };
+}
+
+/** Register the current device's Expo push token for this authenticated account. */
+export async function registerPushDevice(
+  token: string,
+  expoPushToken: string,
+  platform: 'ios' | 'android',
+): Promise<void> {
+  await callAction('registerpushdevice', { expoPushToken, platform }, { token });
+}
+
+/** Remove this device's Expo push token from the authenticated account. */
+export async function unregisterPushDevice(
+  token: string,
+  expoPushToken: string,
+): Promise<void> {
+  await callAction('unregisterpushdevice', { expoPushToken }, { token });
 }
 
 export async function listNotifications(token: string): Promise<AppNotification[]> {

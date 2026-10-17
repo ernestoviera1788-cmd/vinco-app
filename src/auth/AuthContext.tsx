@@ -9,6 +9,7 @@ import React, {
 import * as SecureStore from 'expo-secure-store';
 import { AuthError, onAuthFailure } from '../api/client';
 import { getMe, logout as apiLogout, updateLocale } from '../api/actions';
+import { registerPushNotifications, unregisterPushNotifications } from '../notifications/push';
 import type { GetMeResult, Locale } from '../api/types';
 
 const TOKEN_KEY = 'vinco.session.token';
@@ -59,6 +60,12 @@ export function AuthProvider({
     await SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => {});
     await SecureStore.deleteItemAsync(TOKEN_SAVED_AT_KEY).catch(() => {});
   }, []);
+
+  // Register the device when an authenticated session becomes available.
+  // This helper is best-effort and never blocks login if push is not configured.
+  useEffect(() => {
+    if (token) void registerPushNotifications(token);
+  }, [token]);
 
   // Any AuthError raised by the API client forces a logout.
   useEffect(() => {
@@ -125,7 +132,10 @@ export function AuthProvider({
 
   const signOut = useCallback(async () => {
     const t = await SecureStore.getItemAsync(TOKEN_KEY);
-    if (t) await apiLogout(t);
+    if (t) {
+      await unregisterPushNotifications(t);
+      await apiLogout(t);
+    }
     await clearLocalSession();
   }, [clearLocalSession]);
 
