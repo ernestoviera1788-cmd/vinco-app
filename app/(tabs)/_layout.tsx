@@ -1,14 +1,18 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { StyleSheet, View, type ColorValue } from 'react-native';
-import { Tabs } from 'expo-router';
+import { Tabs, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useI18n } from '../../src/i18n';
 import { useAuth } from '../../src/auth/AuthContext';
-import { refreshUnreadMessages, useUnreadMessages } from '../../src/notifications/unread';
+import {
+  refreshUnreadMessages,
+  subscribeToNewUnreadMessages,
+  useUnreadMessages,
+} from '../../src/notifications/unread';
 import { playMessageSound } from '../../src/notifications/sound';
 import { colors } from '../../src/theme';
 
-/** How often the unread-message dot is re-checked while the tabs are mounted. */
+/** How often unread messages are re-checked while the tabs are mounted. */
 const UNREAD_POLL_MS = 15000;
 
 function MessagesIcon({ color, size, hasUnread }: { color: ColorValue; size: number; hasUnread: boolean }) {
@@ -23,28 +27,29 @@ function MessagesIcon({ color, size, hasUnread }: { color: ColorValue; size: num
 export default function TabsLayout() {
   const { t } = useI18n();
   const { token } = useAuth();
+  const pathname = usePathname();
   const unreadMessages = useUnreadMessages();
-  const lastUnread = useRef<number | null>(null);
+  const isChatOpen = pathname.startsWith('/chat/');
 
   useEffect(() => {
     if (!token) return;
     let alive = true;
+    const unsubscribe = subscribeToNewUnreadMessages(() => {
+      // The open chat has its own message-level detector. Avoid playing the
+      // same incoming message twice while the tab layout remains mounted.
+      if (alive && !isChatOpen) void playMessageSound();
+    });
     const check = async () => {
-      const n = await refreshUnreadMessages(token);
-      if (!alive) return;
-      // A new message arrived while away from the chat: sound it (not on first check).
-      if (lastUnread.current !== null && n > lastUnread.current) {
-        void playMessageSound();
-      }
-      lastUnread.current = n;
+      await refreshUnreadMessages(token);
     };
     void check();
     const timer = setInterval(() => void check(), UNREAD_POLL_MS);
     return () => {
       alive = false;
+      unsubscribe();
       clearInterval(timer);
     };
-  }, [token]);
+  }, [token, isChatOpen]);
 
   return (
     <Tabs
