@@ -543,6 +543,23 @@ function parseNotification(v: unknown): AppNotification {
   };
 }
 
+/** Register the current device's Expo push token for this authenticated account. */
+export async function registerPushDevice(
+  token: string,
+  expoPushToken: string,
+  platform: 'ios' | 'android',
+): Promise<void> {
+  await callAction('registerpushdevice', { expoPushToken, platform }, { token });
+}
+
+/** Remove this device's Expo push token from the authenticated account. */
+export async function unregisterPushDevice(
+  token: string,
+  expoPushToken: string,
+): Promise<void> {
+  await callAction('unregisterpushdevice', { expoPushToken }, { token });
+}
+
 export async function listNotifications(token: string): Promise<AppNotification[]> {
   const payload = await callAction('listnotifications', {}, { token });
   return unwrapList(payload).map(parseNotification);
