@@ -357,15 +357,20 @@ export async function setPrimaryPhoto(token: string, photoId: string): Promise<v
 
 // ---------------------------------------------------------------- discovery & social
 
-export async function listDiscovery(token: string): Promise<DiscoveryCard[]> {
-  const payload = await callAction('listdiscovery', {}, { token });
-  // DIAGNÓSTICO TEMPORAL: muestra en la terminal de Expo qué devuelve el backend.
+export interface DiscoveryFilterArgs {
+  preferredGender: 'Todos' | 'Hombre' | 'Mujer';
+  withPhoto: boolean;
+  verifiedOnly: boolean;
+  onlineNow: boolean;
+  recentlyActive: boolean;
+  commonInterests: boolean;
+  newProfiles: boolean;
+  sortBy: 'recommended' | 'recent' | 'active';
+}
+
+export async function listDiscovery(token: string, filters?: DiscoveryFilterArgs): Promise<DiscoveryCard[]> {
+  const payload = await callAction('listdiscovery', filters ? { ...filters } : {}, { token });
   const rawList = unwrapList(payload);
-  console.log(`[DIAG listDiscovery] perfiles recibidos: ${rawList.length}`);
-  rawList.forEach((v: any, i: number) => {
-    const o = obj(v);
-    console.log(`[DIAG listDiscovery] #${i} id=${o.id} nombre=${o.firstName} edad=${o.age}`);
-  });
   return rawList.map((v) => {
     const o = obj(v);
     const photos = arr(o.photos ?? o.profilePhotos).map(parsePhoto);
