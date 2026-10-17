@@ -1,10 +1,12 @@
-import { useCallback, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useI18n, fmt } from '../../src/i18n';
 import { useAuth } from '../../src/auth/AuthContext';
 import { listDiscovery, reactToProfile } from '../../src/api/actions';
+import { GenderPicker } from '../../src/components/GenderPicker';
+import { DEFAULT_SEARCH_FILTERS, loadSearchFilters, saveSearchFilters, type SearchFilters } from '../../src/filters/searchFilters';
 import { ApiError } from '../../src/api/client';
 import type { DiscoveryCard } from '../../src/api/types';
 import { Screen } from '../../src/components/Screen';
@@ -22,26 +24,68 @@ export default function Discover() {
   const [error, setError] = useState('');
   const [reacting, setReacting] = useState(false);
   const [matchInfo, setMatchInfo] = useState<{ name: string; photoUrl?: string; matchId: string } | null>(null);
+  const [filters, setFilters] = useState<SearchFilters>(DEFAULT_SEARCH_FILTERS);
+  const [draftFilters, setDraftFilters] = useState<SearchFilters>(DEFAULT_SEARCH_FILTERS);
+  const [filtersLoaded, setFiltersLoaded] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  useEffect(() => {
+    void loadSearchFilters().then((saved) => {
+      setFilters(saved);
+      setDraftFilters(saved);
+      setFiltersLoaded(true);
+    });
+  }, []);
 
   const load = useCallback(async () => {
     if (!token) return;
     setError('');
     try {
-      const result = await listDiscovery(token);
+      const result = await listDiscovery(token, filters);
       setCards(result);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : t.errors.unknown);
     } finally {
       setLoading(false);
     }
-  }, [token, t]);
+  }, [token, t, filters]);
 
   useFocusEffect(
     useCallback(() => {
+      if (!filtersLoaded) return;
       setLoading(true);
       void load();
-    }, [load]),
+    }, [load, filtersLoaded]),
   );
+
+  async function applyFilters() {
+    try {
+      await saveSearchFilters(draftFilters);
+      setFilters(draftFilters);
+      setFiltersOpen(false);
+      setLoading(true);
+      setError('');
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : t.errors.unknown);
+    }
+  }
+
+  async function resetFilters() {
+    setDraftFilters(DEFAULT_SEARCH_FILTERS);
+    try {
+      await saveSearchFilters(DEFAULT_SEARCH_FILTERS);
+      setFilters(DEFAULT_SEARCH_FILTERS);
+      setFiltersOpen(false);
+      setLoading(true);
+      setError('');
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : t.errors.unknown);
+    }
+  }
+
+  function toggleFilter(key: Exclude<keyof SearchFilters, 'preferredGender' | 'sortBy'>) {
+    setDraftFilters((current) => ({ ...current, [key]: !current[key] }));
+  }
 
   async function react(kind: ReactKind) {
     const top = cards[0];
@@ -70,7 +114,62 @@ export default function Discover() {
     <Screen scroll={false} padded={false}>
       <View style={styles.header}>
         <Text style={styles.title}>{t.discover.title}</Text>
+        <Pressable accessibilityRole="button" style={styles.filterButton} onPress={() => {
+          setDraftFilters(filters);
+          setFiltersOpen((open) => !open);
+        }}>
+          <Ionicons name="options-outline" size={18} color={colors.rose600} />
+          <Text style={styles.filterButtonText}>{t.discover.filters}</Text>
+        </Pressable>
       </View>
+      {filtersOpen ? (
+        <ScrollView style={styles.filtersPanel} keyboardShouldPersistTaps="handled">
+          <Text style={styles.filterHeading}>{t.discover.filterGender}</Text>
+          <GenderPicker
+            label={t.discover.filterGender}
+            value={draftFilters.preferredGender}
+            onChange={(value) => setDraftFilters((current) => ({ ...current, preferredGender: value as SearchFilters['preferredGender'] }))}
+            options={[
+              { value: 'Todos', label: t.discover.everyone },
+              { value: 'Mujer', label: t.register.genderWoman },
+              { value: 'Hombre', label: t.register.genderMan },
+            ]}
+          />
+          <Text style={styles.filterHeading}>{t.discover.moreFilters}</Text>
+          {([
+            ['withPhoto', t.discover.withPhoto],
+            ['verifiedOnly', t.discover.verifiedOnly],
+            ['onlineNow', t.discover.onlineNow],
+            ['recentlyActive', t.discover.recentlyActive],
+            ['commonInterests', t.discover.commonInterests],
+            ['newProfiles', t.discover.newProfiles],
+          ] as const).map(([key, label]) => (
+            <Pressable key={key} accessibilityRole="checkbox" accessibilityState={{ checked: draftFilters[key] }}
+              onPress={() => toggleFilter(key)} style={styles.filterRow}>
+              <Ionicons name={draftFilters[key] ? 'checkbox' : 'square-outline'} size={22}
+                color={draftFilters[key] ? colors.rose600 : colors.inkFaint} />
+              <Text style={styles.filterLabel}>{label}</Text>
+            </Pressable>
+          ))}
+          <Text style={styles.filterHeading}>{t.discover.sortBy}</Text>
+          {([
+            ['recommended', t.discover.recommended],
+            ['recent', t.discover.recent],
+            ['active', t.discover.active],
+          ] as const).map(([value, label]) => (
+            <Pressable key={value} accessibilityRole="radio" accessibilityState={{ checked: draftFilters.sortBy === value }}
+              onPress={() => setDraftFilters((current) => ({ ...current, sortBy: value }))} style={styles.filterRow}>
+              <Ionicons name={draftFilters.sortBy === value ? 'radio-button-on' : 'radio-button-off'} size={21}
+                color={draftFilters.sortBy === value ? colors.rose600 : colors.inkFaint} />
+              <Text style={styles.filterLabel}>{label}</Text>
+            </Pressable>
+          ))}
+          <View style={styles.filterActions}>
+            <Pressable onPress={() => void resetFilters()} style={styles.resetButton}><Text style={styles.resetText}>{t.discover.resetFilters}</Text></Pressable>
+            <Pressable onPress={() => void applyFilters()} style={styles.applyButton}><Text style={styles.applyText}>{t.discover.applyFilters}</Text></Pressable>
+          </View>
+        </ScrollView>
+      ) : null}
       {loading ? (
         <View style={styles.center}><Text style={styles.dim}>{t.common.loading}</Text></View>
       ) : error && cards.length === 0 ? (
@@ -149,7 +248,18 @@ export default function Discover() {
 }
 
 const styles = StyleSheet.create({
-  header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+  header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
+  filterButton: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: colors.rose500, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 8 },
+  filterButtonText: { color: colors.rose600, fontWeight: '700', fontSize: type.small },
+  filtersPanel: { marginHorizontal: spacing.lg, marginTop: spacing.sm, padding: spacing.md, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, maxHeight: '52%' },
+  filterHeading: { fontSize: type.small, fontWeight: '800', color: colors.ink, marginTop: spacing.xs, marginBottom: spacing.xs },
+  filterRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 7 },
+  filterLabel: { fontSize: type.body, color: colors.ink, flex: 1 },
+  filterActions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.sm, gap: spacing.sm },
+  resetButton: { paddingVertical: 11, paddingHorizontal: 12 },
+  resetText: { color: colors.inkSoft, fontSize: type.small, fontWeight: '700' },
+  applyButton: { backgroundColor: colors.rose500, borderRadius: radius.pill, paddingVertical: 11, paddingHorizontal: 18 },
+  applyText: { color: '#fff', fontWeight: '800', fontSize: type.small },
   title: { fontSize: type.title, fontWeight: '900', color: colors.ink },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   dim: { color: colors.inkFaint, fontSize: type.body },
