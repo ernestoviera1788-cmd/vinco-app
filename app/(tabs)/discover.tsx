@@ -78,11 +78,12 @@ export default function Discover() {
     }, [load, filtersLoaded, filters]),
   );
 
-  async function persistFilters(next: SearchFilters) {
+  async function persistFilters(next: SearchFilters, resetting = false) {
     if (!token) return;
-    if (!ageMinInput.trim() || !ageMaxInput.trim() || !distanceMaxInput.trim() ||
-        next.ageMin < 18 || next.ageMax > 99 || next.ageMin > next.ageMax ||
-        next.distanceMax < 1 || next.distanceMax > 500) {
+    if ((!resetting && (!ageMinInput.trim() || !ageMaxInput.trim() || !distanceMaxInput.trim())) ||
+        !Number.isFinite(next.ageMin) || !Number.isFinite(next.ageMax) || !Number.isFinite(next.distanceMax) ||
+        next.ageMin < 18 || next.ageMin > 99 || next.ageMax < 18 || next.ageMax > 99 ||
+        next.ageMin > next.ageMax || next.distanceMax < 1 || next.distanceMax > 500) {
       setError(t.discover.invalidFilters);
       return;
     }
@@ -135,7 +136,7 @@ export default function Discover() {
     setAgeMaxInput(String(DEFAULT_SEARCH_FILTERS.ageMax));
     setDistanceMaxInput(String(DEFAULT_SEARCH_FILTERS.distanceMax));
     try {
-      await persistFilters(DEFAULT_SEARCH_FILTERS);
+      await persistFilters(DEFAULT_SEARCH_FILTERS, true);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : t.errors.unknown);
     }
