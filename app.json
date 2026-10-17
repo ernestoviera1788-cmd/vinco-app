@@ -1,0 +1,53 @@
+{
+  "expo": {
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#1a0b14",
+        "foregroundImage": "./assets/adaptive-icon.png"
+      },
+      "package": "com.vinco.app",
+      "permissions": [
+        "READ_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES"
+      ]
+    },
+    "experiments": {
+      "typedRoutes": true
+    },
+    "icon": "./assets/icon.png",
+    "ios": {
+      "bundleIdentifier": "com.vinco.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "VINCÓ needs access to your camera so you can take profile photos.",
+        "NSPhotoLibraryUsageDescription": "VINCÓ needs access to your photo library so you can add profile photos."
+      },
+      "supportsTablet": true
+    },
+    "name": "VINCÓ",
+    "orientation": "portrait",
+    "plugins": [
+      "expo-router",
+      "expo-localization",
+      "expo-secure-store",
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 140,
+          "resizeMode": "contain",
+          "backgroundColor": "#1a0b14"
+        }
+      ]
+    ],
+    "scheme": "vinco",
+    "slug": "vinco-native",
+    "userInterfaceStyle": "automatic",
+    "version": "1.0.0",
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png",
+      "output": "static"
+    }
+  }
+}
