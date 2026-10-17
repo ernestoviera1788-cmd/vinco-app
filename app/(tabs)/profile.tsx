@@ -334,20 +334,6 @@ export default function Profile() {
           <TextField label={t.register.education} value={profile.education} onChangeText={(v) => setP('education', v)} />
           <TextField label={t.register.hobbies} value={profile.hobbies} onChangeText={(v) => setP('hobbies', v)} />
           <TextField label={t.register.lifestyle} value={profile.lifestyle} onChangeText={(v) => setP('lifestyle', v)} />
-          <GenderPicker label={t.register.preferredGender} value={profile.preferredGender} onChange={(v) => setP('preferredGender', v)}
-            options={[
-              { value: 'Hombre', label: t.register.genderMan },
-              { value: 'Mujer', label: t.register.genderWoman },
-            ]} />
-          <View style={styles.row}>
-            <View style={styles.half}>
-              <TextField label={t.register.ageMin} keyboardType="number-pad" value={String(profile.ageMin)} onChangeText={(v) => setP('ageMin', v.replace(/[^0-9]/g, ''))} />
-            </View>
-            <View style={styles.half}>
-              <TextField label={t.register.ageMax} keyboardType="number-pad" value={String(profile.ageMax)} onChangeText={(v) => setP('ageMax', v.replace(/[^0-9]/g, ''))} />
-            </View>
-          </View>
-          <TextField label={t.register.distanceMax} keyboardType="number-pad" value={String(profile.distanceMax)} onChangeText={(v) => setP('distanceMax', v.replace(/[^0-9]/g, ''))} />
           <Button title={t.common.save} onPress={() => void saveProfile()} loading={saving} />
         </View>
       )}
