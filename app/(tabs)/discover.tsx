@@ -89,7 +89,7 @@ export default function Discover() {
     });
     await updateProfile(token, {
       ...current,
-      preferredGender: next.preferredGender === 'Todos' ? 'Todos' : next.preferredGender,
+      preferredGender: next.preferredGender === 'Todos' ? '' : next.preferredGender,
       ageMin: next.ageMin,
       ageMax: next.ageMax,
       distanceMax: next.distanceMax,
