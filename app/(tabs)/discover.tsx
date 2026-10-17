@@ -29,6 +29,9 @@ export default function Discover() {
   const [draftFilters, setDraftFilters] = useState<SearchFilters>(DEFAULT_SEARCH_FILTERS);
   const [filtersLoaded, setFiltersLoaded] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [ageMinInput, setAgeMinInput] = useState(String(DEFAULT_SEARCH_FILTERS.ageMin));
+  const [ageMaxInput, setAgeMaxInput] = useState(String(DEFAULT_SEARCH_FILTERS.ageMax));
+  const [distanceMaxInput, setDistanceMaxInput] = useState(String(DEFAULT_SEARCH_FILTERS.distanceMax));
 
   useEffect(() => {
     let cancelled = false;
@@ -46,6 +49,9 @@ export default function Discover() {
       if (cancelled) return;
       setFilters(initial);
       setDraftFilters(initial);
+      setAgeMinInput(String(initial.ageMin));
+      setAgeMaxInput(String(initial.ageMax));
+      setDistanceMaxInput(String(initial.distanceMax));
       setFiltersLoaded(true);
     });
     return () => { cancelled = true; };
@@ -74,7 +80,9 @@ export default function Discover() {
 
   async function persistFilters(next: SearchFilters) {
     if (!token) return;
-    if (next.ageMin < 18 || next.ageMax > 99 || next.ageMin > next.ageMax || next.distanceMax < 1 || next.distanceMax > 500) {
+    if (!ageMinInput.trim() || !ageMaxInput.trim() || !distanceMaxInput.trim() ||
+        next.ageMin < 18 || next.ageMax > 99 || next.ageMin > next.ageMax ||
+        next.distanceMax < 1 || next.distanceMax > 500) {
       setError(t.discover.invalidFilters);
       return;
     }
@@ -97,6 +105,9 @@ export default function Discover() {
     await saveSearchFilters(next);
     setFilters(next);
     setDraftFilters(next);
+    setAgeMinInput(String(next.ageMin));
+    setAgeMaxInput(String(next.ageMax));
+    setDistanceMaxInput(String(next.distanceMax));
     await refreshMe();
     setFiltersOpen(false);
     setLoading(true);
@@ -113,6 +124,9 @@ export default function Discover() {
 
   async function resetFilters() {
     setDraftFilters(DEFAULT_SEARCH_FILTERS);
+    setAgeMinInput(String(DEFAULT_SEARCH_FILTERS.ageMin));
+    setAgeMaxInput(String(DEFAULT_SEARCH_FILTERS.ageMax));
+    setDistanceMaxInput(String(DEFAULT_SEARCH_FILTERS.distanceMax));
     try {
       await persistFilters(DEFAULT_SEARCH_FILTERS);
     } catch (e) {
@@ -171,16 +185,25 @@ export default function Discover() {
           <Text style={styles.filterHeading}>{t.discover.ageRange}</Text>
           <View style={styles.filterInputRow}>
             <View style={styles.filterInput}>
-              <TextField label={t.discover.ageMin} keyboardType="number-pad" value={String(draftFilters.ageMin)}
-                onChangeText={(value) => setDraftFilters((current) => ({ ...current, ageMin: Number(value) || 18 }))} />
+              <TextField label={t.discover.ageMin} keyboardType="number-pad" value={ageMinInput}
+                onChangeText={(value) => {
+                  setAgeMinInput(value);
+                  if (value.trim() && Number.isFinite(Number(value))) setDraftFilters((current) => ({ ...current, ageMin: Number(value) }));
+                }} />
             </View>
             <View style={styles.filterInput}>
-              <TextField label={t.discover.ageMax} keyboardType="number-pad" value={String(draftFilters.ageMax)}
-                onChangeText={(value) => setDraftFilters((current) => ({ ...current, ageMax: Number(value) || 18 }))} />
+              <TextField label={t.discover.ageMax} keyboardType="number-pad" value={ageMaxInput}
+                onChangeText={(value) => {
+                  setAgeMaxInput(value);
+                  if (value.trim() && Number.isFinite(Number(value))) setDraftFilters((current) => ({ ...current, ageMax: Number(value) }));
+                }} />
             </View>
           </View>
-          <TextField label={t.discover.distanceMax} keyboardType="number-pad" value={String(draftFilters.distanceMax)}
-            onChangeText={(value) => setDraftFilters((current) => ({ ...current, distanceMax: Number(value) || 1 }))} />
+          <TextField label={t.discover.distanceMax} keyboardType="number-pad" value={distanceMaxInput}
+            onChangeText={(value) => {
+              setDistanceMaxInput(value);
+              if (value.trim() && Number.isFinite(Number(value))) setDraftFilters((current) => ({ ...current, distanceMax: Number(value) }));
+            }} />
           <View style={styles.filterActions}>
             <Pressable onPress={() => void resetFilters()} style={styles.resetButton}><Text style={styles.resetText}>{t.discover.resetFilters}</Text></Pressable>
             <Pressable onPress={() => void applyFilters()} style={styles.applyButton}><Text style={styles.applyText}>{t.discover.applyFilters}</Text></Pressable>
