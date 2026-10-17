@@ -1,26 +1,17 @@
 import * as SecureStore from 'expo-secure-store';
 
-export type DiscoverySort = 'recommended' | 'recent' | 'active';
 export interface SearchFilters {
   preferredGender: 'Todos' | 'Hombre' | 'Mujer';
-  withPhoto: boolean;
-  verifiedOnly: boolean;
-  onlineNow: boolean;
-  recentlyActive: boolean;
-  commonInterests: boolean;
-  newProfiles: boolean;
-  sortBy: DiscoverySort;
+  ageMin: number;
+  ageMax: number;
+  distanceMax: number;
 }
 
 export const DEFAULT_SEARCH_FILTERS: SearchFilters = {
   preferredGender: 'Todos',
-  withPhoto: false,
-  verifiedOnly: false,
-  onlineNow: false,
-  recentlyActive: false,
-  commonInterests: false,
-  newProfiles: false,
-  sortBy: 'recommended',
+  ageMin: 18,
+  ageMax: 99,
+  distanceMax: 50,
 };
 
 const KEY = 'vinco.searchFilters.v1';
@@ -30,16 +21,15 @@ export async function loadSearchFilters(): Promise<SearchFilters> {
     const raw = await SecureStore.getItemAsync(KEY);
     if (!raw) return DEFAULT_SEARCH_FILTERS;
     const value = JSON.parse(raw) as Partial<SearchFilters>;
-    const gender = value.preferredGender;
+    const ageMin = Number(value.ageMin);
+    const ageMax = Number(value.ageMax);
+    const distanceMax = Number(value.distanceMax);
+    const preferredGender = value.preferredGender;
     return {
-      preferredGender: gender === 'Hombre' || gender === 'Mujer' ? gender : 'Todos',
-      withPhoto: value.withPhoto === true,
-      verifiedOnly: value.verifiedOnly === true,
-      onlineNow: value.onlineNow === true,
-      recentlyActive: value.recentlyActive === true,
-      commonInterests: value.commonInterests === true,
-      newProfiles: value.newProfiles === true,
-      sortBy: value.sortBy === 'recent' || value.sortBy === 'active' ? value.sortBy : 'recommended',
+      preferredGender: preferredGender === 'Hombre' || preferredGender === 'Mujer' ? preferredGender : 'Todos',
+      ageMin: Number.isFinite(ageMin) && ageMin >= 18 && ageMin <= 99 ? ageMin : 18,
+      ageMax: Number.isFinite(ageMax) && ageMax >= 18 && ageMax <= 99 ? ageMax : 99,
+      distanceMax: Number.isFinite(distanceMax) && distanceMax >= 1 && distanceMax <= 500 ? distanceMax : 50,
     };
   } catch {
     return DEFAULT_SEARCH_FILTERS;
