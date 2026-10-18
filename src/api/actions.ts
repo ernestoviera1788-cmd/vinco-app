@@ -266,8 +266,6 @@ export function buildFullProfile(partial: Partial<FullProfile>): FullProfile {
 }
 
 export async function updateProfile(token: string, profile: FullProfile): Promise<void> {
-  // DIAGNÓSTICO TEMPORAL: muestra en la terminal de Expo qué se envía al backend.
-  console.log(`[DIAG updateProfile] gender="${profile.gender}" preferredGender="${profile.preferredGender}" ageMin=${profile.ageMin} ageMax=${profile.ageMax}`);
   await callAction(
     'updateprofile',
     {
@@ -359,13 +357,7 @@ export async function setPrimaryPhoto(token: string, photoId: string): Promise<v
 
 export async function listDiscovery(token: string): Promise<DiscoveryCard[]> {
   const payload = await callAction('listdiscovery', {}, { token });
-  // DIAGNÓSTICO TEMPORAL: muestra en la terminal de Expo qué devuelve el backend.
   const rawList = unwrapList(payload);
-  console.log(`[DIAG listDiscovery] perfiles recibidos: ${rawList.length}`);
-  rawList.forEach((v: any, i: number) => {
-    const o = obj(v);
-    console.log(`[DIAG listDiscovery] #${i} id=${o.id} nombre=${o.firstName} edad=${o.age}`);
-  });
   return rawList.map((v) => {
     const o = obj(v);
     const photos = arr(o.photos ?? o.profilePhotos).map(parsePhoto);

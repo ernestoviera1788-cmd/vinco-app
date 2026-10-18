@@ -15,7 +15,6 @@ import { useI18n } from '../../src/i18n';
 import { useAuth } from '../../src/auth/AuthContext';
 import { listMessages, sendMessage, setTyping } from '../../src/api/actions';
 import { refreshUnreadMessages } from '../../src/notifications/unread';
-import { playMessageSound } from '../../src/notifications/sound';
 import { ApiError } from '../../src/api/client';
 import type { ChatMessage } from '../../src/api/types';
 import { StubBanner } from '../../src/components/StubBanner';
@@ -40,27 +39,11 @@ export default function Chat() {
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const myUserId = me?.user.id ?? '';
-  const seenIds = useRef<Set<string>>(new Set());
-  const firstLoad = useRef(true);
-
-  // New conversation: reset the "already seen" tracking for the ding.
-  useEffect(() => {
-    seenIds.current = new Set();
-    firstLoad.current = true;
-  }, [id]);
-
   const load = useCallback(async () => {
     if (!token || !id) return;
     try {
       const msgs = await listMessages(token, id, myUserId);
       setMessages(msgs);
-      // Ding on new incoming messages (not on first load, not for own messages).
-      if (!firstLoad.current) {
-        const fresh = msgs.some((m) => !m.mine && !seenIds.current.has(m.id));
-        if (fresh) void playMessageSound();
-      }
-      firstLoad.current = false;
-      msgs.forEach((m) => seenIds.current.add(m.id));
     } catch (e) {
       if (e instanceof ApiError) setError(e.message);
     }

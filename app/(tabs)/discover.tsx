@@ -1,10 +1,13 @@
-import { useCallback, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useI18n, fmt } from '../../src/i18n';
 import { useAuth } from '../../src/auth/AuthContext';
-import { listDiscovery, reactToProfile } from '../../src/api/actions';
+import { buildFullProfile, listDiscovery, reactToProfile, updateProfile } from '../../src/api/actions';
+import { GenderPicker } from '../../src/components/GenderPicker';
+import { TextField } from '../../src/components/TextField';
+import { DEFAULT_SEARCH_FILTERS, loadSearchFilters, saveSearchFilters, type SearchFilters } from '../../src/filters/searchFilters';
 import { ApiError } from '../../src/api/client';
 import type { DiscoveryCard } from '../../src/api/types';
 import { Screen } from '../../src/components/Screen';
@@ -16,12 +19,43 @@ type ReactKind = 'LIKE' | 'PASS' | 'SUPER_LIKE';
 
 export default function Discover() {
   const { t } = useI18n();
-  const { token } = useAuth();
+  const { token, me, refreshMe } = useAuth();
   const [cards, setCards] = useState<DiscoveryCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [reacting, setReacting] = useState(false);
   const [matchInfo, setMatchInfo] = useState<{ name: string; photoUrl?: string; matchId: string } | null>(null);
+  const [filters, setFilters] = useState<SearchFilters>(DEFAULT_SEARCH_FILTERS);
+  const [draftFilters, setDraftFilters] = useState<SearchFilters>(DEFAULT_SEARCH_FILTERS);
+  const [filtersLoaded, setFiltersLoaded] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [ageMinInput, setAgeMinInput] = useState(String(DEFAULT_SEARCH_FILTERS.ageMin));
+  const [ageMaxInput, setAgeMaxInput] = useState(String(DEFAULT_SEARCH_FILTERS.ageMax));
+  const [distanceMaxInput, setDistanceMaxInput] = useState(String(DEFAULT_SEARCH_FILTERS.distanceMax));
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadSearchFilters().then((saved) => {
+      const profile = me?.profile;
+      const preferred = profile?.preferredGender;
+      const initial: SearchFilters = profile
+        ? {
+            preferredGender: preferred === 'Hombre' || preferred === 'Mujer' ? preferred : 'Todos',
+            ageMin: profile.ageMin,
+            ageMax: profile.ageMax,
+            distanceMax: profile.distanceMax,
+          }
+        : saved;
+      if (cancelled) return;
+      setFilters(initial);
+      setDraftFilters(initial);
+      setAgeMinInput(String(initial.ageMin));
+      setAgeMaxInput(String(initial.ageMax));
+      setDistanceMaxInput(String(initial.distanceMax));
+      setFiltersLoaded(true);
+    });
+    return () => { cancelled = true; };
+  }, [me?.profile]);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -38,10 +72,75 @@ export default function Discover() {
 
   useFocusEffect(
     useCallback(() => {
+      if (!filtersLoaded) return;
       setLoading(true);
       void load();
-    }, [load]),
+    }, [load, filtersLoaded, filters]),
   );
+
+  async function persistFilters(next: SearchFilters, resetting = false) {
+    if (!token) return;
+    if ((!resetting && (!ageMinInput.trim() || !ageMaxInput.trim() || !distanceMaxInput.trim())) ||
+        !Number.isFinite(next.ageMin) || !Number.isFinite(next.ageMax) || !Number.isFinite(next.distanceMax) ||
+        next.ageMin < 18 || next.ageMin > 99 || next.ageMax < 18 || next.ageMax > 99 ||
+        next.ageMin > next.ageMax || next.distanceMax < 1 || next.distanceMax > 500) {
+      setError(t.discover.invalidFilters);
+      return;
+    }
+    const user = me?.user;
+    const current = buildFullProfile({
+      ...(me?.profile ?? {}),
+      firstName: user?.firstName ?? me?.profile?.firstName ?? '',
+      city: user?.city ?? me?.profile?.city ?? '',
+      state: user?.state ?? me?.profile?.state ?? '',
+      country: user?.country ?? me?.profile?.country ?? '',
+      gender: user?.gender ?? me?.profile?.gender ?? '',
+    });
+    const normalizeGender = (value: string) => {
+      const normalized = value.trim().toLowerCase();
+      if (normalized === 'hombre' || normalized === 'man') return 'Hombre';
+      if (normalized === 'mujer' || normalized === 'woman') return 'Mujer';
+      return value.trim();
+    };
+    await updateProfile(token, {
+      ...current,
+      gender: normalizeGender(current.gender),
+      preferredGender: next.preferredGender === 'Todos' ? '' : next.preferredGender,
+      ageMin: next.ageMin,
+      ageMax: next.ageMax,
+      distanceMax: next.distanceMax,
+    });
+    await saveSearchFilters(next);
+    setFilters(next);
+    setDraftFilters(next);
+    setAgeMinInput(String(next.ageMin));
+    setAgeMaxInput(String(next.ageMax));
+    setDistanceMaxInput(String(next.distanceMax));
+    await refreshMe();
+    setFiltersOpen(false);
+    setLoading(true);
+    setError('');
+  }
+
+  async function applyFilters() {
+    try {
+      await persistFilters(draftFilters);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : t.errors.unknown);
+    }
+  }
+
+  async function resetFilters() {
+    setDraftFilters(DEFAULT_SEARCH_FILTERS);
+    setAgeMinInput(String(DEFAULT_SEARCH_FILTERS.ageMin));
+    setAgeMaxInput(String(DEFAULT_SEARCH_FILTERS.ageMax));
+    setDistanceMaxInput(String(DEFAULT_SEARCH_FILTERS.distanceMax));
+    try {
+      await persistFilters(DEFAULT_SEARCH_FILTERS, true);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : t.errors.unknown);
+    }
+  }
 
   async function react(kind: ReactKind) {
     const top = cards[0];
@@ -70,7 +169,55 @@ export default function Discover() {
     <Screen scroll={false} padded={false}>
       <View style={styles.header}>
         <Text style={styles.title}>{t.discover.title}</Text>
+        <Pressable accessibilityRole="button" style={styles.filterButton} onPress={() => {
+          setDraftFilters(filters);
+          setFiltersOpen((open) => !open);
+        }}>
+          <Ionicons name="options-outline" size={18} color={colors.rose600} />
+          <Text style={styles.filterButtonText}>{t.discover.filters}</Text>
+        </Pressable>
       </View>
+      {filtersOpen ? (
+        <ScrollView style={styles.filtersPanel} keyboardShouldPersistTaps="handled">
+          <Text style={styles.filterHeading}>{t.discover.filterGender}</Text>
+          <GenderPicker
+            label={t.discover.filterGender}
+            value={draftFilters.preferredGender}
+            onChange={(value) => setDraftFilters((current) => ({ ...current, preferredGender: value as SearchFilters['preferredGender'] }))}
+            options={[
+              { value: 'Todos', label: t.discover.everyone },
+              { value: 'Mujer', label: t.register.genderWoman },
+              { value: 'Hombre', label: t.register.genderMan },
+            ]}
+          />
+          <Text style={styles.filterHeading}>{t.discover.ageRange}</Text>
+          <View style={styles.filterInputRow}>
+            <View style={styles.filterInput}>
+              <TextField label={t.discover.ageMin} keyboardType="number-pad" value={ageMinInput}
+                onChangeText={(value) => {
+                  setAgeMinInput(value);
+                  if (value.trim() && Number.isFinite(Number(value))) setDraftFilters((current) => ({ ...current, ageMin: Number(value) }));
+                }} />
+            </View>
+            <View style={styles.filterInput}>
+              <TextField label={t.discover.ageMax} keyboardType="number-pad" value={ageMaxInput}
+                onChangeText={(value) => {
+                  setAgeMaxInput(value);
+                  if (value.trim() && Number.isFinite(Number(value))) setDraftFilters((current) => ({ ...current, ageMax: Number(value) }));
+                }} />
+            </View>
+          </View>
+          <TextField label={t.discover.distanceMax} keyboardType="number-pad" value={distanceMaxInput}
+            onChangeText={(value) => {
+              setDistanceMaxInput(value);
+              if (value.trim() && Number.isFinite(Number(value))) setDraftFilters((current) => ({ ...current, distanceMax: Number(value) }));
+            }} />
+          <View style={styles.filterActions}>
+            <Pressable onPress={() => void resetFilters()} style={styles.resetButton}><Text style={styles.resetText}>{t.discover.resetFilters}</Text></Pressable>
+            <Pressable onPress={() => void applyFilters()} style={styles.applyButton}><Text style={styles.applyText}>{t.discover.applyFilters}</Text></Pressable>
+          </View>
+        </ScrollView>
+      ) : null}
       {loading ? (
         <View style={styles.center}><Text style={styles.dim}>{t.common.loading}</Text></View>
       ) : error && cards.length === 0 ? (
@@ -149,7 +296,18 @@ export default function Discover() {
 }
 
 const styles = StyleSheet.create({
-  header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+  header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
+  filterButton: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: colors.rose500, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 8 },
+  filterButtonText: { color: colors.rose600, fontWeight: '700', fontSize: type.small },
+  filtersPanel: { marginHorizontal: spacing.lg, marginTop: spacing.sm, padding: spacing.md, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, maxHeight: '52%' },
+  filterHeading: { fontSize: type.small, fontWeight: '800', color: colors.ink, marginTop: spacing.xs, marginBottom: spacing.xs },
+  filterInputRow: { flexDirection: 'row', gap: spacing.sm },
+  filterInput: { flex: 1 },
+  filterActions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.sm, gap: spacing.sm },
+  resetButton: { paddingVertical: 11, paddingHorizontal: 12 },
+  resetText: { color: colors.inkSoft, fontSize: type.small, fontWeight: '700' },
+  applyButton: { backgroundColor: colors.rose500, borderRadius: radius.pill, paddingVertical: 11, paddingHorizontal: 18 },
+  applyText: { color: '#fff', fontWeight: '800', fontSize: type.small },
   title: { fontSize: type.title, fontWeight: '900', color: colors.ink },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   dim: { color: colors.inkFaint, fontSize: type.body },

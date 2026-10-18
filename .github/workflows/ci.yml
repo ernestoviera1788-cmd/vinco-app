@@ -1,0 +1,35 @@
+name: VINCÓ CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - fix/filters-only-in-discover
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        # The lockfile was generated with peer dependency resolution; keep CI
+        # consistent with the project's documented fallback if npm ci rejects it.
+        run: npm ci --legacy-peer-deps
+
+      - name: TypeScript typecheck
+        run: npm run typecheck
+
+      - name: Export iOS and Android bundles
+        env:
+          EXPO_PUBLIC_API_URL: https://vinco-server-production.up.railway.app
+        run: npx expo export --platform ios --platform android
